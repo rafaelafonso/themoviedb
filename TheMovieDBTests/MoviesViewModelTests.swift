@@ -103,7 +103,7 @@ struct MoviesViewModelTests {
 
     // MARK: - fetchMovieCredits
 
-    @Test func fetchCreditsSetsDirectorAndCredits() async {
+    @Test func fetchCreditsCachesAndExposesDirector() async {
         let credits = MovieCredits(
             id: 1,
             cast: [Cast(name: "Actor One"), Cast(name: "Actor Two")],
@@ -115,11 +115,11 @@ struct MoviesViewModelTests {
         let movie = sampleMovies.results[0]
         await vm.fetchMovieCredits(for: movie)
 
-        #expect(vm.director == "Shawn Levy")
-        #expect(vm.movieCredits?.cast.count == 2)
+        #expect(vm.director(for: movie.id) == "Shawn Levy")
+        #expect(vm.credits(for: movie.id)?.cast.count == 2)
     }
 
-    @Test func fetchCreditsWithNoDirectorSetsNil() async {
+    @Test func fetchCreditsWithNoDirectorReturnsNil() async {
         let credits = MovieCredits(
             id: 1,
             cast: [Cast(name: "Actor One")],
@@ -131,6 +131,27 @@ struct MoviesViewModelTests {
         let movie = sampleMovies.results[0]
         await vm.fetchMovieCredits(for: movie)
 
-        #expect(vm.director == nil)
+        #expect(vm.director(for: movie.id) == nil)
+    }
+
+    @Test func fetchCreditsUsesCache() async {
+        let credits = MovieCredits(
+            id: 1,
+            cast: [Cast(name: "Actor One")],
+            crew: [Crew(name: "Shawn Levy", job: "Director")]
+        )
+        let service = MockMovieService()
+        service.moviesToReturn = sampleMovies
+        service.movieCreditsToReturn = credits
+        let vm = MoviesViewModel(movieService: service)
+
+        let movie = sampleMovies.results[0]
+        await vm.fetchMovieCredits(for: movie)
+
+        // Change what mock returns — should not matter since cache is used
+        service.movieCreditsToReturn = MovieCredits(id: 1, cast: [], crew: [])
+        await vm.fetchMovieCredits(for: movie)
+
+        #expect(vm.credits(for: movie.id)?.cast.count == 1)
     }
 }

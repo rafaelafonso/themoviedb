@@ -41,7 +41,7 @@ struct MovieDetailView: View {
                         }
                     }
                     VStack(alignment: .leading) {
-                        infoSection(title: "Director", content: viewModel.director ?? "")
+                        infoSection(title: "Director", content: viewModel.director(for: movie.id) ?? "")
                         infoSection(title: "Released on", content: movie.releaseDate)
                         infoSection(title: "Rating", content: "\(movie.rating ?? 0.0)")
                         infoSection(title: "Votes", content: "\(movie.votes ?? 0)")
@@ -56,7 +56,7 @@ struct MovieDetailView: View {
                     if isLoadingCredits {
                         ProgressView()
                             .padding(.vertical, 8)
-                    } else if let cast = viewModel.movieCredits?.cast, !cast.isEmpty {
+                    } else if let cast = viewModel.credits(for: movie.id)?.cast, !cast.isEmpty {
                         VStack(alignment: .leading) {
                             Text("Cast")
                                 .font(.subheadline)

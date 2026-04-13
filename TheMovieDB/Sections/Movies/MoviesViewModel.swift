@@ -21,11 +21,10 @@ final class MoviesViewModel {
 
     var movies: Movies? = nil
     var genres: [Genre]? = nil
-    var movieCredits: MovieCredits? = nil
-    var director: String? = nil
     var page: Int = 1
     var state: State = .idle
 
+    private(set) var creditsCache: [Int: MovieCredits] = [:]
     private let movieService: MovieServiceProtocol
     private let logger = Logger(subsystem: "com.themoviedb", category: "ViewModel")
 
@@ -53,14 +52,25 @@ final class MoviesViewModel {
     }
 
     func fetchMovieCredits(for movie: Movie) async {
+        if creditsCache[movie.id] != nil {
+            logger.debug("Credits cache hit for movie \(movie.id)")
+            return
+        }
         logger.debug("Fetching credits for movie \(movie.id)")
         do {
             let credits = try await movieService.fetchMovieCredits(id: movie.id)
-            movieCredits = credits
-            director = credits.crew.first(where: { $0.job == "Director" })?.name
+            creditsCache[movie.id] = credits
         } catch {
             logger.error("Error fetching credits: \(error.localizedDescription)")
         }
+    }
+
+    func credits(for movieId: Int) -> MovieCredits? {
+        creditsCache[movieId]
+    }
+
+    func director(for movieId: Int) -> String? {
+        creditsCache[movieId]?.crew.first(where: { $0.job == "Director" })?.name
     }
 
     func fetchGenres() async {
