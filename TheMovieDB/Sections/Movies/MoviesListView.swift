@@ -32,21 +32,22 @@ struct MoviesListView: View {
             }
         }
 
-        guard var movies = viewModel.movies else { return [] }
+        guard let movies = viewModel.movies else { return [] }
+        var results = movies.results
 
         if let rating = filterState.selectedRating {
-            movies.results = movies.results.filter { $0.rating ?? 0.0 >= Float(rating) }
+            results = results.filter { $0.rating ?? 0.0 >= Float(rating) }
         }
         if let genre = filterState.selectedGenre {
-            movies.results = movies.results.filter { $0.genres.contains(genre.id) }
+            results = results.filter { $0.genres.contains(genre.id) }
         }
         if let year = filterState.selectedYear {
-            movies.results = movies.results.filter { $0.releaseDate.contains("\(year)") }
+            results = results.filter { $0.releaseDate.contains("\(year)") }
         }
         if !searchText.isEmpty {
-            movies.results = movies.results.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
+            results = results.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
         }
-        return movies.results
+        return results
     }
 
     var body: some View {
@@ -106,16 +107,17 @@ struct MoviesListView: View {
     }
 
     private var moviesList: some View {
-        ScrollView {
+        let movies = filteredMovies
+        return ScrollView {
             LazyVGrid(columns: [GridItem()], spacing: 12) {
-                ForEach(Array(filteredMovies.enumerated()), id: \.offset) { index, movie in
+                ForEach(movies) { movie in
                     MovieCardView(movie: movie)
                         .onTapGesture {
                             selectedMovie = movie
                             showDetailsView = true
                         }
                         .onAppear {
-                            if index == filteredMovies.count - 3 {
+                            if movie.id == movies.last?.id {
                                 Task { await viewModel.loadNextPage() }
                             }
                         }

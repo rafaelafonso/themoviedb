@@ -14,13 +14,14 @@ struct MovieCardView: View {
 
         HStack(alignment: .top, spacing: 20) {
             VStack(alignment: .leading, spacing: 8) {
-                AsyncImage(url: movie.posterURL) { phase in
+                AsyncImage(url: movie.posterURL, transaction: Transaction(animation: nil)) { phase in
                     switch phase {
                     case .success(let image):
                         image
                             .resizable()
+                            .aspectRatio(contentMode: .fill)
                             .frame(width: 90, height: 120)
-                            .scaledToFit()
+                            .clipped()
                             .cornerRadius(8)
                     case .failure:
                         Image(systemName: "photo")
@@ -28,13 +29,15 @@ struct MovieCardView: View {
                             .background(Color.gray.opacity(0.2))
                             .cornerRadius(8)
                     default:
-                        ProgressView()
+                        Color.gray.opacity(0.15)
                             .frame(width: 90, height: 120)
+                            .cornerRadius(8)
                     }
                 }
                 Text("Released on: \n\(movie.releaseDate)")
                     .font(.caption)
             }
+            .frame(width: 90)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(movie.title)
@@ -43,6 +46,7 @@ struct MovieCardView: View {
 
                 Text(movie.overview)
                     .font(.footnote)
+                    .lineLimit(4)
             }
 
             Spacer()
@@ -56,7 +60,3 @@ struct MovieCardView: View {
         .padding(.horizontal)
     }
 }
-
-//#Preview {
-//    MovieCardView(movie: Movie(id: 533535, title: "Deadpool & Wolverine", poster: "/8cdWjvZQUExUUTzyp4t6EDMubfO.jpg", releaseDate: "2024-07-24", overview: "A listless Wade Wilson toils away in civilian life with his days as the morally flexible mercenary, Deadpool, behind him. But when his homeworld faces an existential threat, Wade must reluctantly suit-up again with an even more reluctant Wolverine."))
-//}
