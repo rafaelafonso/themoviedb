@@ -27,8 +27,8 @@ struct MoviesListView: View {
         if !networkStatus.isConnected {
             return favoriteMovies.map {
                 Movie(id: $0.id, title: $0.title, releaseDate: $0.releaseDate,
-                      overview: $0.overview, genres: $0.genres, director: $0.director,
-                      cast: $0.cast, rating: $0.rating, votes: $0.votes)
+                      overview: $0.overview, genres: $0.genres, posterPath: $0.posterPath,
+                      director: $0.director, cast: $0.cast, rating: $0.rating, votes: $0.votes)
             }
         }
 

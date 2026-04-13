@@ -14,7 +14,7 @@ struct MovieCardView: View {
 
         HStack(alignment: .top, spacing: 20) {
             VStack(alignment: .leading, spacing: 8) {
-                AsyncImage(url: movie.poster) { phase in
+                AsyncImage(url: movie.posterURL) { phase in
                     switch phase {
                     case .success(let image):
                         image

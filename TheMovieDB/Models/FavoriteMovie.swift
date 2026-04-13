@@ -12,7 +12,7 @@ import SwiftData
 class FavoriteMovie {
     var id: Int = 0
     var title: String = ""
-    var poster: URL? = nil
+    var posterPath: String? = nil
     var releaseDate: String = ""
     var overview: String = ""
     var genres: [Int] = []
@@ -21,10 +21,10 @@ class FavoriteMovie {
     var rating: Float? = nil
     var votes: Int? = nil
 
-    init(id: Int, title: String, poster: URL?, releaseDate: String, overview: String, genres: [Int], director: String?, cast: [Cast]?, rating: Float?, votes: Int?) {
+    init(id: Int, title: String, posterPath: String?, releaseDate: String, overview: String, genres: [Int], director: String?, cast: [Cast]?, rating: Float?, votes: Int?) {
         self.id = id
         self.title = title
-        self.poster = poster
+        self.posterPath = posterPath
         self.releaseDate = releaseDate
         self.overview = overview
         self.genres = genres

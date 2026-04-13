@@ -22,7 +22,7 @@ struct MovieDetailView: View {
         ScrollView {
             VStack(spacing: 20) {
                 HStack(alignment: .top, spacing: 20) {
-                    AsyncImage(url: movie.poster) { phase in
+                    AsyncImage(url: movie.posterURL) { phase in
                         switch phase {
                         case .success(let image):
                             image
@@ -110,7 +110,7 @@ private extension MovieDetailView {
         self.isFavorite.toggle()
 
         if isFavorite {
-            let favoriteMovie = FavoriteMovie(id: movie.id, title: movie.title, poster: movie.poster, releaseDate: movie.releaseDate, overview: movie.overview, genres: movie.genres, director: movie.director, cast: movie.cast, rating: movie.rating, votes: movie.votes)
+            let favoriteMovie = FavoriteMovie(id: movie.id, title: movie.title, posterPath: movie.posterPath, releaseDate: movie.releaseDate, overview: movie.overview, genres: movie.genres, director: movie.director, cast: movie.cast, rating: movie.rating, votes: movie.votes)
             modelContext.insert(favoriteMovie)
         } else {
             if let index = favorites.firstIndex(where: { $0.id == movie.id }) {
