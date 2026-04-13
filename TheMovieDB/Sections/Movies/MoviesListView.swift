@@ -11,8 +11,8 @@ import SwiftData
 struct MoviesListView: View {
 
     @Environment(\.modelContext) private var modelContext
-    @StateObject var networkStatus: NetworkStatus = NetworkStatus()
-    @StateObject var viewModel: MoviesViewModel = MoviesViewModel()
+    @State var networkStatus = NetworkStatus()
+    @State var viewModel = MoviesViewModel()
 
     @State private var showDetailsView: Bool = false
     @State private var selectedMovie: Movie?
@@ -25,7 +25,7 @@ struct MoviesListView: View {
     @State private var selectedGenre: Genre?
     @State private var selectedYear: Int?
     @State private var selectedRating: Int?
-    var ratings: [Int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    let ratings: [Int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
     let columns = [GridItem()]
 
@@ -75,40 +75,40 @@ struct MoviesListView: View {
         NavigationStack {
             VStack(alignment: .leading) {
                 filterView
-                ScrollView {
-                    LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(Array(filteredMovies.enumerated()), id: \.offset) { index, movie in
-                            MovieCardView(movie: movie)
-                                .onTapGesture {
-                                    self.selectedMovie = movie
-                                    self.showDetailsView = true
-                                }
-                        }
-                        .searchable(text: $searchText, prompt: "Search movie")
+                Group {
+                    switch viewModel.state {
+                    case .idle, .loading:
+                        ProgressView("Loading movies...")
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                        GeometryReader { geometry in
-                            Color.clear
-                                .onAppear {
-                                    let offsetY = geometry.frame(in: .global).maxY
-                                    let height = UIScreen.main.bounds.height
-                                    if offsetY < height * 1.2 {
-                                        Task {
-                                            viewModel.page += 1
-                                            await viewModel.fetchMovies()
-                                        }
-                                    }
-                                }
+                    case .error(let message):
+                        ContentUnavailableView {
+                            Label("Something went wrong", systemImage: "exclamationmark.triangle")
+                        } description: {
+                            Text(message)
+                        } actions: {
+                            Button("Try Again") {
+                                Task { await viewModel.fetchMovies() }
+                            }
                         }
-                        .frame(height: 20)
+
+                    case .loaded:
+                        if filteredMovies.isEmpty {
+                            ContentUnavailableView.search(text: searchText)
+                        } else {
+                            moviesList
+                        }
                     }
                 }
-                .padding(.top)
             }
             .navigationTitle(Text("Popular Movies"))
             .navigationDestination(isPresented: $showDetailsView) {
                 if let movie = selectedMovie {
-                    MovieDetailView(viewModel: viewModel, movie: movie)                        
+                    MovieDetailView(viewModel: viewModel, movie: movie)
                 }
+            }
+            .task {
+                await viewModel.fetchMovies()
             }
             .onChange(of: networkStatus.isConnected) { oldValue, newValue in
                 if !oldValue && newValue {
@@ -120,6 +120,27 @@ struct MoviesListView: View {
             }
             .alert("Internet is back!", isPresented: $showReconnectionAlert) {}
         }
+    }
+
+    private var moviesList: some View {
+        ScrollView {
+            LazyVGrid(columns: columns, spacing: 12) {
+                ForEach(Array(filteredMovies.enumerated()), id: \.offset) { index, movie in
+                    MovieCardView(movie: movie)
+                        .onTapGesture {
+                            self.selectedMovie = movie
+                            self.showDetailsView = true
+                        }
+                        .onAppear {
+                            if index == filteredMovies.count - 3 {
+                                Task { await viewModel.loadNextPage() }
+                            }
+                        }
+                }
+                .searchable(text: $searchText, prompt: "Search movie")
+            }
+        }
+        .padding(.top)
     }
 }
 

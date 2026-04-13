@@ -11,22 +11,34 @@ import SwiftUI
 struct MovieDetailView: View {
 
     @Environment(\.modelContext) private var modelContext
-    @ObservedObject var viewModel: MoviesViewModel
+    var viewModel: MoviesViewModel
     @Query var favorites: [FavoriteMovie]
     var movie: Movie
     @State private var isFavorite: Bool = false
+    @State private var isLoadingCredits: Bool = true
 
     var body: some View {
 
         ScrollView {
             VStack(spacing: 20) {
                 HStack(alignment: .top, spacing: 20) {
-                    AsyncImage(url: movie.poster) { image in
-                        image.image?
-                            .resizable()
-                            .frame(width: 180, height: 240)
-                            .scaledToFit()
-                            .cornerRadius(8)
+                    AsyncImage(url: movie.poster) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .frame(width: 180, height: 240)
+                                .scaledToFit()
+                                .cornerRadius(8)
+                        case .failure:
+                            Image(systemName: "photo")
+                                .frame(width: 180, height: 240)
+                                .background(Color.gray.opacity(0.2))
+                                .cornerRadius(8)
+                        default:
+                            ProgressView()
+                                .frame(width: 180, height: 240)
+                        }
                     }
                     VStack(alignment: .leading) {
                         infoSection(title: "Director", content: viewModel.director ?? "")
@@ -41,13 +53,16 @@ struct MovieDetailView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     infoSection(title: "Synopsis", content: movie.overview)
 
-                    if let cast = viewModel.movieCredits?.cast, cast.count > 0 {
+                    if isLoadingCredits {
+                        ProgressView()
+                            .padding(.vertical, 8)
+                    } else if let cast = viewModel.movieCredits?.cast, !cast.isEmpty {
                         VStack(alignment: .leading) {
                             Text("Cast")
                                 .font(.subheadline)
                                 .fontWeight(.bold)
-                            ForEach(cast, id: \.self) { cast in
-                                Text(cast.name)
+                            ForEach(cast, id: \.self) { member in
+                                Text(member.name)
                                     .font(.subheadline)
                             }
                         }
@@ -69,18 +84,18 @@ struct MovieDetailView: View {
                 }
             }
         }
+        .task {
+            await viewModel.fetchMovieCredits(for: movie)
+            isLoadingCredits = false
+        }
         .onAppear {
-            Task {
-                await viewModel.fetchMovieDetails(for: movie)
-                await viewModel.fetchMovieCredits(for: movie)
-            }
             self.isFavorite = favorites.contains(where: { $0.id == movie.id })
         }
         .onDisappear {
             Task {
                 do {
                     try modelContext.save()
-                } catch let error {
+                } catch {
                     print(">error saving modelContext: \(error.localizedDescription)")
                 }
             }
@@ -114,10 +129,4 @@ private extension MovieDetailView {
         }
         .padding(.bottom, 8)
     }
-}
-
-
-#Preview {
-//    MovieDetailView(viewModel: MoviesViewModel(), movie: Movie(id: 533535, title: "Deadpool & Wolverine", poster: "/8cdWjvZQUExUUTzyp4t6EDMubfO.jpg", releaseDate: "2024-07-24", overview: "A listless Wade Wilson toils away in civilian life with his days as the morally flexible mercenary, Deadpool, behind him. But when his homeworld faces an existential threat, Wade must reluctantly suit-up again with an even more reluctant Wolverine.", cast: [Cast(name: "Pedrito"), Cast(name: "Miguelito"), Cast(name: "Juanita")]))
-
 }

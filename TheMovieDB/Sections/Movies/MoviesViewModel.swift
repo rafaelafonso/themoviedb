@@ -8,26 +8,33 @@
 import SwiftUI
 import os
 
+@Observable
 @MainActor
-class MoviesViewModel: ObservableObject {
-    @Published var movies: Movies? = nil
-    @Published var genres: [Genre]? = nil
-    @Published var movieCredits: MovieCredits? = nil
-    @Published var director: String? = nil
-    @Published var page: Int = 1
-    @Published var errorMessage: String? = nil
+final class MoviesViewModel {
+
+    enum State: Equatable {
+        case idle
+        case loading
+        case loaded
+        case error(String)
+    }
+
+    var movies: Movies? = nil
+    var genres: [Genre]? = nil
+    var movieCredits: MovieCredits? = nil
+    var director: String? = nil
+    var page: Int = 1
+    var state: State = .idle
 
     private let movieService: MovieServiceProtocol
     private let logger = Logger(subsystem: "com.themoviedb", category: "ViewModel")
 
     init(movieService: MovieServiceProtocol = MovieService()) {
         self.movieService = movieService
-        Task {
-            await self.fetchMovies()
-        }
     }
 
     func fetchMovies() async {
+        if movies == nil { state = .loading }
         logger.debug("Fetching movies page \(self.page)")
         do {
             let result = try await movieService.fetchMovies(page: page)
@@ -36,19 +43,12 @@ class MoviesViewModel: ObservableObject {
             } else {
                 movies?.results.append(contentsOf: result.results)
             }
-            errorMessage = nil
+            state = movies?.results.isEmpty == true ? .loaded : .loaded
         } catch {
             logger.error("Error fetching movies: \(error.localizedDescription)")
-            errorMessage = "Could not load movies."
-        }
-    }
-
-    func fetchMovieDetails(for movie: Movie) async {
-        logger.debug("Fetching details for movie \(movie.id)")
-        do {
-            _ = try await movieService.fetchMovieDetails(id: movie.id)
-        } catch {
-            logger.error("Error fetching movie details: \(error.localizedDescription)")
+            if movies == nil {
+                state = .error("Could not load movies. Check your connection and try again.")
+            }
         }
     }
 
@@ -70,5 +70,10 @@ class MoviesViewModel: ObservableObject {
         } catch {
             logger.error("Error fetching genres: \(error.localizedDescription)")
         }
+    }
+
+    func loadNextPage() async {
+        page += 1
+        await fetchMovies()
     }
 }
