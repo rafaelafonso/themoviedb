@@ -14,12 +14,23 @@ struct MovieCardView: View {
 
         HStack(alignment: .top, spacing: 20) {
             VStack(alignment: .leading, spacing: 8) {
-                AsyncImage(url: movie.poster) { image in
-                    image.image?
-                        .resizable()
-                        .frame(width: 90, height: 120)
-                        .scaledToFit()
-                        .cornerRadius(8)
+                AsyncImage(url: movie.poster) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .frame(width: 90, height: 120)
+                            .scaledToFit()
+                            .cornerRadius(8)
+                    case .failure:
+                        Image(systemName: "photo")
+                            .frame(width: 90, height: 120)
+                            .background(Color.gray.opacity(0.2))
+                            .cornerRadius(8)
+                    default:
+                        ProgressView()
+                            .frame(width: 90, height: 120)
+                    }
                 }
                 Text("Released on: \n\(movie.releaseDate)")
                     .font(.caption)
