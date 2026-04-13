@@ -6,48 +6,63 @@
 //
 
 import Foundation
+import os
 
-class NetworkManager {
+protocol NetworkManaging: Sendable {
+    func getRequest(_ endpoint: MovieEndpoint, params: [String: CustomStringConvertible]) async throws -> Data
+}
+
+extension NetworkManaging {
+    func getRequest(_ endpoint: MovieEndpoint) async throws -> Data {
+        try await getRequest(endpoint, params: [:])
+    }
+}
+
+final class NetworkManager: NetworkManaging {
     static let shared = NetworkManager()
-    let baseURLString: String = "https://api.themoviedb.org/3"
 
-    func getRequest(_ endpoint: MovieEndpoint, params: [String: CustomStringConvertible] = [:], completion: @escaping (Result<Data, Error>) -> Void) {
+    private let baseURLString = "https://api.themoviedb.org/3"
+    private let session: URLSession
+    private let logger = Logger(subsystem: "com.themoviedb", category: "Network")
 
-        let urlString: String = baseURLString.appending(endpoint.apiEndpoint())
+    init(session: URLSession = .shared) {
+        self.session = session
+    }
 
-        guard var url = URL(string: urlString) else { return }
-        if var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
-            components.queryItems = params.map { URLQueryItem(name: $0.key, value: $0.value.description) }
-            if let apiKey = ApiEnvironment.apiKey {
-                components.queryItems?.append(URLQueryItem(name: "api_key", value: apiKey))
-            }
-            if let composedUrl = components.url {
-                url = composedUrl
-            }
+    func getRequest(_ endpoint: MovieEndpoint, params: [String: CustomStringConvertible] = [:]) async throws -> Data {
+        let urlString = baseURLString + endpoint.apiEndpoint()
+
+        guard let baseURL = URL(string: urlString),
+              var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+            throw URLError(.badURL)
         }
 
-        print(">url: \(url)")
+        components.queryItems = params.map { URLQueryItem(name: $0.key, value: $0.value.description) }
+        if let apiKey = ApiEnvironment.apiKey {
+            components.queryItems?.append(URLQueryItem(name: "api_key", value: apiKey))
+        }
+
+        guard let url = components.url else {
+            throw URLError(.badURL)
+        }
+
+        logger.debug("Request: \(url.absoluteString, privacy: .private)")
+
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
 
-        let task = URLSession.shared.dataTask(with: request) { data, response, error in
-            guard let httpResponse = response as? HTTPURLResponse else { return }
-            guard let data = data, let _ = String(data: data, encoding: .utf8) else { return }
+        let (data, response) = try await session.data(for: request)
 
-            if let error = error {
-                print(">Error: \(error)")
-                completion(.failure(error))
-                return
-            }
-
-            guard httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else {
-                print(">Bad server response")
-                completion(.failure(URLError(.badServerResponse)))
-                return
-            }
-            print(">Completion success!")
-            completion(.success(data))
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
         }
-        task.resume()
+
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            logger.error("HTTP \(httpResponse.statusCode) for \(endpoint.apiEndpoint())")
+            throw URLError(.badServerResponse)
+        }
+
+        logger.debug("Success: \(endpoint.apiEndpoint())")
+        return data
     }
 }

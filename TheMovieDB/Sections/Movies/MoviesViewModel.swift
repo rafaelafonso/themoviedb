@@ -6,81 +6,69 @@
 //
 
 import SwiftUI
+import os
 
+@MainActor
 class MoviesViewModel: ObservableObject {
     @Published var movies: Movies? = nil
     @Published var genres: [Genre]? = nil
     @Published var movieCredits: MovieCredits? = nil
     @Published var director: String? = nil
     @Published var page: Int = 1
+    @Published var errorMessage: String? = nil
 
-    init() {
+    private let movieService: MovieServiceProtocol
+    private let logger = Logger(subsystem: "com.themoviedb", category: "ViewModel")
+
+    init(movieService: MovieServiceProtocol = MovieService()) {
+        self.movieService = movieService
         Task {
             await self.fetchMovies()
         }
     }
-    
+
     func fetchMovies() async {
-        print(">VM: fetching movies")
-        MovieService().fetchMovies(page: page) { result in
-            switch result {
-            case .success(let movies):
-                if self.movies == nil {
-                    self.movies = movies
-                } else {
-                    self.movies?.results.append(contentsOf: movies.results)
-                }
-            case .failure(_):
-                print("> error")
+        logger.debug("Fetching movies page \(self.page)")
+        do {
+            let result = try await movieService.fetchMovies(page: page)
+            if movies == nil {
+                movies = result
+            } else {
+                movies?.results.append(contentsOf: result.results)
             }
+            errorMessage = nil
+        } catch {
+            logger.error("Error fetching movies: \(error.localizedDescription)")
+            errorMessage = "Could not load movies."
         }
     }
 
     func fetchMovieDetails(for movie: Movie) async {
-        print(">VM: fetching movie details")
-        MovieService().fetchMovieDetails(id: movie.id) { result in
-            switch result {
-            case .success(let movie):
-                print("> movie details: \(movie)")
-            case .failure(_):
-                print("> error")
-            }
+        logger.debug("Fetching details for movie \(movie.id)")
+        do {
+            _ = try await movieService.fetchMovieDetails(id: movie.id)
+        } catch {
+            logger.error("Error fetching movie details: \(error.localizedDescription)")
         }
     }
 
     func fetchMovieCredits(for movie: Movie) async {
-        print(">VM: fetching movie credits")
-        MovieService().fetchMovieCredits(id: movie.id) { result in
-            switch result {
-            case .success(let movieCredits):
-                self.movieCredits = movieCredits
-                self.director = self.fetchDirector(from: movieCredits.crew)
-            case .failure(_):
-                print("> error")
-            }
+        logger.debug("Fetching credits for movie \(movie.id)")
+        do {
+            let credits = try await movieService.fetchMovieCredits(id: movie.id)
+            movieCredits = credits
+            director = credits.crew.first(where: { $0.job == "Director" })?.name
+        } catch {
+            logger.error("Error fetching credits: \(error.localizedDescription)")
         }
     }
 
     func fetchGenres() async {
-        print(">VM: fetching genres")
-        MovieService().fetchGenres { result in
-            switch result {
-            case .success(let genres):
-                self.genres = genres
-            case .failure(_):
-                print("> error fetching genres")
-            }
+        logger.debug("Fetching genres")
+        do {
+            genres = try await movieService.fetchGenres()
+        } catch {
+            logger.error("Error fetching genres: \(error.localizedDescription)")
         }
-    }
-}
-
-private extension MoviesViewModel {
-    func fetchDirector(from crew: [Crew]) -> String? {
-        for crewMember in crew {
-            if crewMember.job == "Director" {
-                return crewMember.name
-            }
-        }
-        return nil
     }
 }

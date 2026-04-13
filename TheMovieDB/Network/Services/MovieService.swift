@@ -7,106 +7,39 @@
 
 import Foundation
 
-class MovieError: Error {
-    var message: String
-    
-    init(message: String) {
-        self.message = message
-    }
+protocol MovieServiceProtocol: Sendable {
+    func fetchGenres() async throws -> [Genre]
+    func fetchMovies(page: Int) async throws -> Movies
+    func fetchMovieDetails(id: Int) async throws -> Movie
+    func fetchMovieCredits(id: Int) async throws -> MovieCredits
 }
 
-struct MovieService {
+struct MovieService: MovieServiceProtocol {
 
-    ///
-    /// fetchGenres
-    /// - Fetch list of genres.
-    ///
-    func fetchGenres(completion: @escaping (Result<[Genre], Error>) -> Void) {
+    private let networkManager: NetworkManaging
 
-        NetworkManager.shared.getRequest(.fetchGenres) { result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let data):
-                    do {
-                        let genres = try JSONDecoder().decode(Genres.self, from: data)
-                        completion(.success(genres.genres))
-                    } catch {
-                        print(">error decoding genres: \(error.localizedDescription)")
-                        completion(.failure(MovieError(message: error.localizedDescription)))
-                    }
-                case .failure(let error):
-                    completion(.failure(MovieError(message: error.localizedDescription)))
-                }
-            }
-        }
+    init(networkManager: NetworkManaging = NetworkManager.shared) {
+        self.networkManager = networkManager
     }
 
-    ///
-    /// fetchMovies
-    /// - Fetch popular movies.
-    ///
-    func fetchMovies(page: Int, completion: @escaping (Result<Movies, Error>) -> Void) {
-
-        NetworkManager.shared.getRequest(.fetchPopularMovies, params: ["page": page]) { result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let data):
-                    do {
-                        let movies = try JSONDecoder().decode(Movies.self, from: data)
-                        completion(.success(movies))
-                    } catch {
-                        completion(.failure(MovieError(message: error.localizedDescription)))
-                    }
-                case .failure(let error):
-                    completion(.failure(MovieError(message: error.localizedDescription)))
-                }
-            }
-        }
+    func fetchGenres() async throws -> [Genre] {
+        let data = try await networkManager.getRequest(.fetchGenres)
+        let genres = try JSONDecoder().decode(Genres.self, from: data)
+        return genres.genres
     }
 
-    ///
-    /// fetchMovieDetails
-    /// - Get movie details for a given movie ID.
-    ///
-    func fetchMovieDetails(id: Int, completion: @escaping (Result<Movie, Error>) -> Void) {
-
-        NetworkManager.shared.getRequest(.fetchMovie(id: id)) { result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let data):
-                    do {
-                        let movie = try JSONDecoder().decode(Movie.self, from: data)
-                        completion(.success(movie))
-                    } catch {
-                        completion(.failure(MovieError(message: error.localizedDescription)))
-                    }
-                case .failure(let error):
-                    completion(.failure(MovieError(message: error.localizedDescription)))
-                }
-            }
-        }
+    func fetchMovies(page: Int) async throws -> Movies {
+        let data = try await networkManager.getRequest(.fetchPopularMovies, params: ["page": page])
+        return try JSONDecoder().decode(Movies.self, from: data)
     }
 
-    ///
-    /// fetchMovieCredits
-    /// - Get movie credits for a given movie ID.
-    ///
-    func fetchMovieCredits(id: Int, completion: @escaping (Result<MovieCredits, Error>) -> Void) {
+    func fetchMovieDetails(id: Int) async throws -> Movie {
+        let data = try await networkManager.getRequest(.fetchMovie(id: id))
+        return try JSONDecoder().decode(Movie.self, from: data)
+    }
 
-        NetworkManager.shared.getRequest(.fetchMovieCredits(id: id)) { result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let data):
-                    do {
-                        let movieCredits = try JSONDecoder().decode(MovieCredits.self, from: data)
-                        completion(.success(movieCredits))
-                    } catch {
-                        completion(.failure(MovieError(message: error.localizedDescription)))
-                    }
-                case .failure(let error):
-                    completion(.failure(MovieError(message: error.localizedDescription)))
-                }
-            }
-        }
+    func fetchMovieCredits(id: Int) async throws -> MovieCredits {
+        let data = try await networkManager.getRequest(.fetchMovieCredits(id: id))
+        return try JSONDecoder().decode(MovieCredits.self, from: data)
     }
 }
