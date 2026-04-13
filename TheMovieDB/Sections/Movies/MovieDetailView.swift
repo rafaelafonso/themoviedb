@@ -22,7 +22,7 @@ struct MovieDetailView: View {
         ScrollView {
             VStack(spacing: 20) {
                 HStack(alignment: .top, spacing: 20) {
-                    AsyncImage(url: movie.posterURL) { phase in
+                    CachedAsyncImage(url: movie.posterURL) { phase in
                         switch phase {
                         case .success(let image):
                             image
